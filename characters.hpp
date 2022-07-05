@@ -22,8 +22,12 @@ struct Character
   int time_dizzy = 0;
   int time_stunned = 0;
   int time_to_wait = 0;
+
+  int atk_buff = 0;
   int time_atk_buffed = 0;
+  int atk_nerf = 0;
   int time_atk_nerfed = 0;
+  int def_nerf = 0;
   int time_def_nerfed = 0;
 
   Character();
@@ -34,6 +38,7 @@ struct Character
   int heal_self(int);
   void update_status(int);
   void print_info();
+  void print_detailed_info();
 };
 
 // character templates will be defined in defs.cpp

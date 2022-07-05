@@ -8,7 +8,7 @@ struct GameHolder{
   Character* get_next_player();
   void time_pass(int);
   bool round();
-  void initialize();
+  void initialize(std::vector<Character>);
   void print_players();
   void load(char*);
 };

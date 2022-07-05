@@ -31,7 +31,7 @@ int main(int a, char *args[])
       std::cin >> foo;
       std::cin.ignore();
       if(check_emptiness(args[foo])){
-        std::cout << "I tried to advise you...\nPlease initialize valid saves\n\nShutting down...\n";
+        std::cout << "I tried to advise you...\nPlease initialize with valid save files\n\nShutting down...\n";
         wait_enter();
         return 0;
       }
@@ -42,18 +42,7 @@ int main(int a, char *args[])
   }
   else if (opt == 'n')
   {
-    // should be: game.initialize();
-    game.allies.push_back(templates[1]);
-    game.allies.push_back(templates[6]);
-    game.allies.push_back(templates[1]);
-
-    game.enemies.push_back(templates[2]);
-    game.enemies[0].is_enemy = true;
-    game.enemies.push_back(templates[3]);
-    game.enemies[1].is_enemy = true;
-    game.enemies.push_back(templates[4]);
-    game.enemies[2].is_enemy = true;
-    wait_enter();
+    game.initialize(templates);
   }
   else
   {

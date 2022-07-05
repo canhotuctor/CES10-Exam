@@ -7,4 +7,4 @@ bool check_emptiness(char *);
 bool check_emptiness(int, char **);
 char init_screen(int, char**);
 
-std::array<Character, 7> character_presets();
+std::vector<Character> character_presets();
