@@ -7,11 +7,11 @@ std::vector<Character> character_presets(){
   Action null_action;
 
   Action grow = Action("Pump Up", "The warrior's blood heats as it fills with rage. Increases his strength for some time.", 1, 7, 350);
-  Action stun = Action("Ice Prison", "The mage condenses the cold air around the tip of his staff as he fires the blow at the enemy, freezing him for some time.", 2, 20, 350);
+  Action stun = Action("Ice Prison", "The mage condenses the cold air around the tip of his staff as he fires the blow at the enemy, freezing him for some time.", 2, 0, 350);
   Action za_knife = Action("Poisoned Knife", "The rogue soaks his blade in an oriental poison, delivering a slash that weaken the foe's defense for some time.", 3, 7, 350);
-  Action big_heal = Action("Grand Heal", "The healer channels his inner energy to close even the deadliest of wounds. Heals the target in 40 HP, but takes some time to recharge", 4, 45, 350);
+  Action big_heal = Action("Grand Heal", "The healer channels his inner energy to close even the deadliest of wounds. Heals the target(may be self) in 45 HP, but takes some time to recharge", 4, 45, 0);
   Action za_arrow = Action("Clean Shot", "The archer holds his breath, aims his arrow well, and hits an enemy vital point, making it deal less damage for some time.", 5, 7, 350);
-  Action dizzit = Action("Lullaby", "The bard plays a song that make his opponent confused, disorienting him for some time. ", 6, 10, 350);
+  Action dizzit = Action("Lullaby", "The bard plays a song that make his opponent confused, disorienting him for some time. ", 6, 0, 350);
 
   Character null_character = Character("", 'n', 0, 0, 0, 0, 0, null_action);
   Character warrior = Character("Warrior", 'w', 200, 25, 15, 4, 0, grow);
@@ -61,6 +61,18 @@ bool check_emptiness(char *in)
   else
     return false;
 }
+bool check_emptiness(std::string in){
+  auto inf = std::ifstream(in);
+  if(!inf.is_open()){
+    return true;
+  }
+  std::string s;
+  inf >> s;
+  if (s == "")
+    return true;
+  else
+    return false;
+}
 bool check_emptiness(int a, char *args[])
 {
   for (int i = 1; i < a; i++)
@@ -91,6 +103,7 @@ char init_screen(int number_of_args, char* args[])
     {
       std::cout << "Received some valid save states. Wanna load any of'em? (y/n)\n";
     }
+    std::cout << "Input: ";
     char option;
     std::cin >> option;
     std::cin.ignore();
@@ -219,12 +232,17 @@ void Character::update_status(int time_passed)
       this->atk_nerf = 0;
     }
   }
+
+  if(this->time_atk_buffed == 0 && this->time_atk_nerfed == 0){
+    this->atk = this->base_atk;
+  }
+
   if (this->time_def_nerfed > 0)
   {
     this->time_def_nerfed -= time_passed;
     if (this->time_def_nerfed <= 0){
-      this->time_atk_buffed = 0;
-      this->atk += this->def_nerf;
+      this->time_def_nerfed = 0;
+      this->def += this->def_nerf;
       this->def_nerf = 0;
     }
   }
@@ -269,11 +287,292 @@ bool GameHolder::round(){
 
   std::cout << '\n';
   std::cout << "It's " << (cur_char->is_enemy ? "Enemy ": "Ally ") << cur_char->name << " turn.\n\n";
+  
+  // actions in each round
+  if(!cur_char->is_enemy){
+    std::cout << "Choose your next move:\n\n";
+    std::cout << "1. Attack\n"
+              << "  \\-> Base damage = " << cur_char->atk << " HP\n"
+              << "  \\-> self-Cooldown = " << (120 - (3 * cur_char->speed)) << " seconds\n\n";
+    std::cout << "2. Secondary Attack: " << cur_char->special.name << "\n"
+              << "  \\-> " << cur_char->special.description << '\n'
+              << "  \\-> self-Cooldown = " << (240 - (5 * cur_char->speed)) << " seconds\n\n";
+    std::cout << "3. Power Attack\n"
+              << "  \\-> Base Damage = " << 3 * cur_char->atk << "HP, but takes some time to recharge\n"
+              << "  \\-> self-Cooldown = " << (500 - (8 * cur_char->speed)) << " seconds\n\n";
+    if (cur_char->healing_power > 0)
+    {
+      std::cout << "4. Minor Heal\n"
+                << "  \\-> Heals self in " << cur_char->healing_power << " HP\n"
+                << "  \\-> self-Cooldown = " << (168 - (4 * cur_char->speed)) << " seconds\n\n";
+    }
+    std::cout << "9. Save Game and Quit:\n"
+              << "  \\-> Ends game and save your progress up until now\n\n";
+    std::cout << "0. Quit Game without saving:\n"
+              << "  \\-> Ends game without saving it in any slot\n\n";
+    
+    std::cout << "Input:";
+    int action;
+    std::cin >> action;
+    std::cin.ignore();
 
-  cur_char->print_info();
-  std::cout << '\n';
+    if (action == 1)
+    {
+      int targ;
+      std::cout << "Set your target, then:";
+      std::cin >> targ;
+      std::cin.ignore();
+      Character* target = &this->enemies[targ - 1];
+      std::cout << "Enemy " << target->name << " took "
+                << target->take_damage(cur_char->atk)
+                << " points of damage\n";
 
-  cur_char->time_to_wait += 100;
+      if (target->is_dead)
+      {
+        std::cout << "Enemy " << target->name << " died" << std::endl;
+        this->remove_player(target);
+      }
+      cur_char->time_to_wait += (120 - (3 * cur_char->speed));
+    }
+    else if (action == 2)
+    {
+      int targ;
+      Action act = cur_char->special;
+      Character* target;
+      if (act.index == 1)
+      {
+        cur_char->atk += act.value1;
+        cur_char->atk_buff += act.value1;
+        cur_char->time_atk_buffed += act.value2;
+        std::cout << "Ally " << cur_char->name << " pumped his strength up in " << act.value1 << " points\n\n";
+      }
+      else if (act.index == 2)
+      {
+        std::cout << "Set your target, then:";
+        std::cin >> targ;
+        std::cin.ignore();
+        target = &this->enemies[targ - 1];
+        target->time_stunned += act.value2;
+        if(target->time_to_wait < target->time_stunned){
+          target->time_to_wait = target->time_stunned;
+        }
+        std::cout << "Enemy " << target->name << " is now frozen\n\n";
+      }
+      else if (act.index == 3)
+      {
+        std::cout << "Set your target, then:";
+        std::cin >> targ;
+        std::cin.ignore();
+        target = &this->enemies[targ - 1];
+        int temp = target->def;
+        target->def -= cur_char->special.value1;
+        temp -= target->def;
+        target->def_nerf += temp;
+        target->time_def_nerfed += cur_char->special.value2;
+        std::cout << "Enemy " << target->name << "'s Defense decreased by " << temp << " points\n\n";
+      }
+      else if (act.index == 4)
+      {
+        std::cout << "Set your target, then:";
+        std::cin >> targ;
+        std::cin.ignore();
+        target = &this->allies[targ - 1];
+        if(target->hp != target->base_hp){
+          std::cout << cur_char->name << " healed " << target->name << '\n'
+                  << "Healed " << target->heal_self(act.value1) << " HP\n\n";
+        }
+        else{
+          std::cout << "It seems like the Healer couldn't heal its target...\n";
+        }
+      }
+      else if (act.index == 5)
+      {
+        std::cout << "Set your target, then:";
+        std::cin >> targ;
+        std::cin.ignore();
+        target = &this->enemies[targ - 1];
+        int temp = target->atk;
+        target->atk -= cur_char->special.value1;
+        if (target->atk < 0)
+        {
+          target->atk = 0;
+        }
+        temp -= target->atk;
+        target->atk_nerf += temp;
+        target->time_atk_nerfed += act.value2;
+        if(temp == 0){
+          std::cout << "Couldn't decrease target's Strength. It was already 0...\n\n";
+        }
+        else{
+          std::cout << "Enemy " << target->name << "'s Strength decreased by " << temp << " points\n\n";
+        }
+      }
+      else if (act.index == 6)
+      {
+        std::cout << "Set your target, then:";
+        std::cin >> targ;
+        std::cin.ignore();
+        target = &this->enemies[targ - 1];
+        target->time_dizzy += act.value2;
+        std::cout << "Enemy " << target->name << " is now dizzy\n\n";
+      }
+      cur_char->time_to_wait += (240 - (5 * cur_char->speed));
+    }
+    else if (action == 3)
+    {
+      int targ;
+      std::cout << "Set your target, then:";
+      std::cin >> targ;
+      std::cin.ignore();
+      Character *target = &this->enemies[targ - 1];
+      std::cout << "Enemy " << target->name << " took "
+                << target->take_damage(3 * cur_char->atk)
+                << " points of damage\n";
+      if (target->is_dead)
+      {
+        std::cout << "Enemy " << target->name << " died\n\n";
+        this->remove_player(target);
+      }
+      else{
+        std::cout << "Ally " << cur_char->name << " now needs to recover his stamina\n\n";
+      }
+      cur_char->time_to_wait += (500 - (8 * cur_char->speed));
+    }
+    else if (action == 4 && cur_char->healing_power > 0)
+    {
+      int a = cur_char->heal_self();
+      if (a == 0)
+      {
+        std::cout << "It looks like the " << cur_char->name << " couldn't heal himself. His life was already full..." << std::endl;
+      }
+      else{
+        std::cout << "Healed " << a << " HP\n\n";
+      }
+      cur_char->time_to_wait += (168 - (4 * cur_char->speed));
+    }
+    else if (action == 9)
+    {
+      while(true){
+        clear_screen();
+        std::cout << "Type the desired save state name:\n";
+        std::string filename;
+        std::cin >> filename;
+        std::cin.ignore();
+        if(!check_emptiness(filename)){
+          std::cout << "That file is not empty. Wanna overwrite its contents? It may be risky... (y/n)\n"
+                    << "Input: ";
+          char opt;
+          std::cin >> opt;
+          std::cin.ignore();
+          if(opt != 'y'){
+            continue;
+          }
+        }
+        bool x = this->save(filename);
+        if(x){
+          std::cout << "Save was sucessfull in file: " << filename << std::endl;
+          wait_enter();
+          return false;
+        }
+        else{
+          std::cout << "Save was unsucessfull... try again with another name\n";
+          wait_enter();
+          continue;
+        }
+      }
+    }
+    else if (action == 0)
+    {
+      clear_screen();
+      return false;
+    }
+    else{
+      std::cout << "Invalid option...\n";
+      wait_enter();
+      return true;
+    }
+  }
+  else{
+    // action if is computer's turn;
+    Character *less_healthy = &this->allies[0];
+    for (size_t i = 0; i < this->allies.size(); i++)
+    {
+      if (this->allies[i].hp < less_healthy->hp)
+        less_healthy = &this->allies[i];
+    }
+
+    std::uniform_int_distribution<long> dist2(0, 100);
+    std::random_device dev2;
+    std::mt19937 gen2(dev2());
+    long var = dist2(gen2);
+    if (cur_char->hp / cur_char->base_hp < 0.2)
+    { // case the enemy's life is below 20%...
+      // 80% heal, 20% attack chances, except if the enemy is a warrior, in case it will only attack in this case
+      if (var <= 20 || cur_char->healing_power == 0)
+      {
+        if (cur_char->time_dizzy == 0)
+        {
+          std::cout << cur_char->name << " attacked " << less_healthy->name << ". " << less_healthy->name << " lost "
+                    << less_healthy->take_damage(cur_char->atk) << " HP.\n\n";
+          cur_char->time_to_wait += (120 - (3 * cur_char->speed));
+        }
+        else
+        {
+          std::cout << "Enemy " << cur_char->name << " tried to attack while dizzy and failed..." << std::endl;
+          cur_char->time_to_wait += (80 - (3 * cur_char->speed));
+          std::cout << "\nPress <ENTER> to continue:";
+          std::cin.ignore();
+        }
+      }
+      else
+      {
+        std::cout << cur_char->name << " healed and regenerated " << cur_char->heal_self(cur_char->healing_power) << "HP.\n\n";
+        cur_char->time_to_wait += (168 - (4 * cur_char->speed));
+      }
+    }
+    else
+    {
+      // 20% heal, 50% atacar, 30% atacar forte
+      if (var < 30 && cur_char->healing_power != 0)
+      { // tries to heal
+        std::cout << cur_char->name << " healed and regenerated " << cur_char->heal_self(cur_char->healing_power) << "HP.\n";
+        cur_char->time_to_wait += (168 - (4 * cur_char->speed));
+      }
+      else if (var < 30 && cur_char->healing_power == 0)
+      {
+        std::cout << cur_char->name << " attacked " << less_healthy->name << ". " << less_healthy->name << " lost "
+                  << less_healthy->take_damage(cur_char->atk) << " HP.\n\n";
+        cur_char->time_to_wait += (120 - (3 * cur_char->speed));
+      }
+      else if (var < 70 && var >= 30)
+      {
+        std::cout << cur_char->name << " attacked " << less_healthy->name << ". " << less_healthy->name << " lost "
+                  << less_healthy->take_damage(cur_char->atk) << " HP.\n\n";
+        cur_char->time_to_wait += (120 - (3 * cur_char->speed));
+      }
+      else if (var >= 70)
+      {
+        std::cout << cur_char->name << " power attacked " << less_healthy->name << ". " << less_healthy->name << " lost "
+                  << less_healthy->take_damage(3 * cur_char->atk) << " HP.\n\n";
+        cur_char->time_to_wait += (500 - (8 * cur_char->speed));
+      }
+    }
+    if (less_healthy->hp == 0)
+    {
+      std::cout << "Unfortunately, your hero, the " << less_healthy->name << " died.\n";
+      this->remove_player(less_healthy);
+    }
+  }
+
+  //check if one of the teams is entirely dead. if so, break
+  if(this->allies.size() == 0){
+    std::cout << "All your heroes are dead...\n";
+    wait_enter();
+    return false;
+  }
+  else if(this->enemies.size() == 0){
+    return false;
+  }
 
   wait_enter();
   return true;
@@ -407,4 +706,126 @@ void GameHolder::initialize(std::vector<Character> prefabs){
   clear_screen();
 }
 
+void GameHolder::load(char* cc, std::vector<Character> prefabs){
+  auto ifile = std::ifstream(cc);
+  int num;
+  ifile >> num;
+  for (int i = 0; i < num; i++)
+  {
+    char jacob;
+    ifile >> jacob;
+    for (size_t j = 1; j < prefabs.size(); j++)
+    {
+      if (prefabs[j].job == jacob)
+      {
+        this->allies.push_back(prefabs[j]);
+        break;
+      }
+    }
+    Character &baz = this->allies[i];
+    ifile 
+    >> baz.hp
+    >> baz.atk
+    >> baz.def
+    >> baz.time_stunned
+    >> baz.time_dizzy
+    >> baz.time_to_wait
+    >> baz.atk_buff
+    >> baz. time_atk_buffed
+    >> baz.atk_nerf
+    >> baz.time_atk_nerfed
+    >> baz.def_nerf
+    >> baz.time_def_nerfed;
+  }
+  ifile >> num;
+  for (int i = 0; i < num; i++)
+  {
+    char jacob;
+    ifile >> jacob;
+    for (size_t j = 1; j < prefabs.size(); j++)
+    {
+      if (prefabs[j].job == jacob)
+      {
+        this->enemies.push_back(prefabs[j]);
+        break;
+      }
+    }
+    Character &baz = this->enemies[i];
+    ifile 
+    >> baz.hp
+    >> baz.atk
+    >> baz.def
+    >> baz.time_stunned
+    >> baz.time_dizzy
+    >> baz.time_to_wait
+    >> baz.atk_buff
+    >> baz. time_atk_buffed
+    >> baz.atk_nerf
+    >> baz.time_atk_nerfed
+    >> baz.def_nerf
+    >> baz.time_def_nerfed;
+  }
+}
 
+void GameHolder::remove_player(Character* dead_guy){
+  for (size_t i = 0; i < this->allies.size(); i++)
+  {
+    if(&this->allies[i] == dead_guy){
+      this->allies.erase(this->allies.begin() + i);
+      std::cout << "debug\n";
+      return;
+    }
+  }
+  for (size_t i = 0; i < this->allies.size(); i++)
+  {
+    if(&this->enemies[i] == dead_guy){
+      this->enemies.erase(this->enemies.begin() + i);
+      std::cout << "debug\n";
+      return;
+    }
+  }  
+}
+
+bool GameHolder::save(std::string filename){
+  auto ofile = std::ofstream(filename);
+  ofile << this->allies.size() << '\n';
+  for (std::size_t i = 0; i < this->allies.size(); ++i)
+  {
+    auto *t = &this->allies[i];
+    ofile << t->job << " "
+          << t->hp << " "
+          << t->atk << " "
+          << t->def << " "
+          << t->time_dizzy << " "
+          << t->time_stunned << " "
+          << t->time_to_wait << " "
+          << t->atk_buff << " "
+          << t->time_atk_buffed << " "
+          << t->atk_nerf << " "
+          << t->time_atk_nerfed << " "
+          << t->def_nerf << " "
+          << t->time_def_nerfed << '\n';
+  }
+  ofile << "\n\n";
+  ofile << this->enemies.size() << '\n';
+  for (std::size_t i = 0; i < this->enemies.size(); ++i)
+  {
+    auto *t = &this->enemies[i];
+    ofile << t->job << " "
+          << t->hp << " "
+          << t->atk << " "
+          << t->def << " "
+          << t->time_dizzy << " "
+          << t->time_stunned << " "
+          << t->time_to_wait << " "
+          << t->atk_buff << " "
+          << t->time_atk_buffed << " "
+          << t->atk_nerf << " "
+          << t->time_atk_nerfed << " "
+          << t->def_nerf << " "
+          << t->time_def_nerfed << '\n';
+  }
+  ofile << '\n';
+
+  return true;
+}

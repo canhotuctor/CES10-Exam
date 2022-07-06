@@ -11,9 +11,10 @@ int main(int a, char *args[])
   {
     if (a == 2)
     {
-      std::cout << "tryin to load the file...\n";
+      std::cout << "tryin to load the file...\n\n";
       wait_enter();
-      // game.load(args[2]);
+      game.load(args[1], templates);
+      // clear screen and show allies and enemies in the game...
     }
     else
     {
@@ -36,7 +37,7 @@ int main(int a, char *args[])
         return 0;
       }
       else{
-        // game.load(args[foo]);
+        game.load(args[foo], templates);
       }
     }
   }
@@ -46,16 +47,30 @@ int main(int a, char *args[])
   }
   else
   {
-    std::cout << "zannen dakara...\n";
+    std::cout << "It's a shame you don't wanna play...\n\n";
     wait_enter();
     return 0;
   }
-
-  // check if load was sucessfull
 
   while(true){
     auto x = game.round();
     if(!x) break;
   }
+
+  if(game.allies.size() == 0){
+    std::cout << "Well, it looks like you really didn't deserved to stay alive\n\nIf you want to prove yourself worthy, try again\n\n";
+    wait_enter();
+    return 0;
+  }
+  else if(game.enemies.size() == 0){
+    std::cout << "Well done! You proved yourself worthy.\n\nHope you play again anytime soon...\n\n";
+    wait_enter();
+    return 0;
+  }
+  
+  clear_screen();
+  std::cout << "Hope you come back...\n\n";
+  wait_enter();
+
   return 0;
 }

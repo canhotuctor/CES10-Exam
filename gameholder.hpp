@@ -10,5 +10,7 @@ struct GameHolder{
   bool round();
   void initialize(std::vector<Character>);
   void print_players();
-  void load(char*);
+  bool save(std::string);
+  void load(char*, std::vector<Character>);
+  void remove_player(Character*);
 };
